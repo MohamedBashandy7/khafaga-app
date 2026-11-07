@@ -1,0 +1,20 @@
+{
+    "appId": "com.blackpearl.infinitycode.accounting",
+    "productName": "Accounting",
+    "extraResources": ["dist-electron/preload.cjs"],
+    "directories": {
+        "output": "dist"
+    },
+    "files": ["dist-electron/**/*", "dist-react/**/*"],
+    "win": {
+        "icon": "src/assets/app-icon.ico",
+        "target": ["portable", "nsis"]
+    },
+    "mac": {
+        "target": "dmg"
+    },
+    "linux": {
+        "target": ["AppImage", "deb"],
+        "category": "Utility"
+    }
+}
