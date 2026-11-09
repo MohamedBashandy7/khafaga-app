@@ -67,70 +67,50 @@ export function GetAllInvoicesPurchase() {
                     <thead className="bg-white/10 text-white">
                         <tr>
                             <th className="px-6 py-4 text-sm font-bold uppercase">رقم الفاتورة</th>
-                            <th className="px-6 py-4 text-sm font-bold uppercase">المورد</th>
+                            <th className="px-6 py-4 text-sm font-bold uppercase">تاريخ الفاتورة</th>
+                            <th className="px-6 py-4 text-sm font-bold uppercase">عدد التصنيفات</th>
                             <th className="px-6 py-4 text-sm font-bold uppercase">الإجمالي</th>
-                            <th className="px-6 py-4 text-sm font-bold uppercase">المدفوع</th>
-                            <th className="px-6 py-4 text-sm font-bold uppercase">المتبقي</th>
-                            <th className="px-6 py-4 text-sm font-bold uppercase">الحالة</th>
                             <th className="px-6 py-4 text-sm font-bold uppercase">الإجراءات</th>
-                            <th className="px-6 py-4 text-sm font-bold uppercase">تاريخ الإنشاء</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/10">
                         {invoices.length > 0 ?
                             invoices.map((inv) => (
                                 <tr
-                                    key={inv._id}
+                                    key={inv.id}
                                     className="hover:bg-white/5 transition-colors">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         {inv.invoiceNo}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        {inv.supplier?.name || "—"}
+                                        {new Date(inv.invoiceDate).toLocaleDateString("ar-EG")}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                        {inv.items?.length ?? 0}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                                         {inv.total.toFixed(2)}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        {inv.paid.toFixed(2)}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        {inv.remain.toFixed(2)}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        {inv.paymentStatus === "paid" && (
-                                            <span className="text-green-400">مدفوعة</span>
-                                        )}
-                                        {inv.paymentStatus === "partial" && (
-                                            <span className="text-yellow-400">مدفوعة جزئيًا</span>
-                                        )}
-                                        {inv.paymentStatus === "unpaid" && (
-                                            <span className="text-red-400">غير مدفوعة</span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
                                         <div className="flex gap-2 justify-center">
                                             <Link
-                                                to={`/invoices/purchase/edit/${inv._id}`}
+                                                to={`/invoices/purchase/edit/${inv.id}`}
                                                 className="cursor-pointer rounded bg-blue-500/40 px-3 py-1 text-sm text-blue-300 hover:bg-blue-500/50 transition-colors">
                                                 تعديل
                                             </Link>
                                             <button
-                                                onClick={() => handleDelete(inv._id)}
-                                                disabled={deletingId === inv._id}
-                                                className="cursor-pointer rounded bg-red-500/40 px-3 py-1 text-sm text-red-300 hover:bg-red-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                                                {deletingId === inv._id ? "جاري..." : "حذف"}
+                                                onClick={() => handleDelete(inv.id)}
+                                                disabled={deletingId === inv.id}
+                                                className="cursor-pointer rounded bg-red-500/40 px-3 py-1 text-sm text-red-300 hover:bg-red-500/50 transition-colors">
+                                                {deletingId === inv.id ? "جاري..." : "حذف"}
                                             </button>
                                         </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white/70">
-                                        {new Date(inv.created_at).toLocaleDateString("ar-EG")}
                                     </td>
                                 </tr>
                             ))
                         :   <tr>
                                 <td
-                                    colSpan={8}
+                                    colSpan={5}
                                     className="px-6 py-8">
                                     <NoData
                                         icon={

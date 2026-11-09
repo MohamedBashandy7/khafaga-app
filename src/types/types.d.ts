@@ -332,25 +332,25 @@ type GetSupplierResponse = {
 }
 
 type InvoicePurchaseItem = {
-    product: { _id: string; name: string }
+    categoryCode: string
+    categoryName: string
     quantity: number
-    purchasePrice: number
+    price: number
+    total: number
+}
+
+type InvoicePurchaseSubmitItem = {
+    categoryCode: string
+    quantity: number
+    price: number
 }
 
 type InvoicePurchase = {
-    _id: string
+    id: string
     invoiceNo: string
-    supplier: { _id: string; name: string; phone?: string }
+    invoiceDate: string
     items: InvoicePurchaseItem[]
-    discount: number
-    tax: number
     total: number
-    paid: number
-    remain: number
-    paymentStatus: "paid" | "partial" | "unpaid"
-    notes?: string
-    created_at: string
-    updated_at: string
 }
 
 type InvoicesPurchaseResponse = {
@@ -573,21 +573,15 @@ interface Window {
             getAll(page?: number, limit?: number): Promise<InvoicesPurchaseResponse>
             get(id: string): Promise<GetInvoicePurchaseResponse>
             create(
-                supplier: string,
-                items: InvoiceSubmitItem[],
-                discount: number,
-                tax: number,
-                paid: number,
-                notes: string
+                invoiceNo: string,
+                invoiceDate: string,
+                items: InvoicePurchaseSubmitItem[]
             ): Promise<CreateInvoicePurchaseResponse>
             update(
                 id: string,
-                supplier: string,
-                items: InvoiceSubmitItem[],
-                discount: number,
-                tax: number,
-                paid: number,
-                notes: string
+                invoiceNo: string,
+                invoiceDate: string,
+                items: InvoicePurchaseSubmitItem[]
             ): Promise<UpdateInvoicePurchaseResponse>
             delete(id: string): Promise<DeleteInvoicePurchaseResponse>
         }

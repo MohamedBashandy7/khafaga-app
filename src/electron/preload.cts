@@ -1,3 +1,4 @@
+
 /// <reference path="../types/types.d.ts" />
 
 const electron = require("electron")
@@ -21,16 +22,12 @@ electron.contextBridge.exposeInMainWorld("electron", {
     categories: {
         getAllCategories: (page?: number, limit?: number) =>
             ipcInvoke("categories:getAll", { page, limit }),
-
         createCategory: (code: string, name: string) =>
             ipcInvoke("categories:create", { code, name }),
-
         deleteCategory: (code: string) =>
             ipcInvoke("categories:delete", code),
-
         updateCategory: (oldCode: string, newCode: string, name: string) =>
             ipcInvoke("categories:update", oldCode, newCode, name),
-
         getCategory: (code: string) =>
             ipcInvoke("categories:get", code)
     },
@@ -38,7 +35,6 @@ electron.contextBridge.exposeInMainWorld("electron", {
     products: {
         getAllProducts: (page?: number, limit?: number) =>
             ipcInvoke("products:getAll", { page, limit }),
-
         createProduct: (
             name: string,
             categoryId: string,
@@ -54,10 +50,8 @@ electron.contextBridge.exposeInMainWorld("electron", {
                 wholesalePrice,
                 sellingPrice
             ),
-
         deleteProduct: (id: string) =>
             ipcInvoke("products:delete", id),
-
         updateProduct: (
             id: string,
             name: string,
@@ -75,7 +69,6 @@ electron.contextBridge.exposeInMainWorld("electron", {
                 wholesalePrice,
                 sellingPrice
             ),
-
         getProduct: (id: string) =>
             ipcInvoke("products:get", id)
     },
@@ -83,16 +76,12 @@ electron.contextBridge.exposeInMainWorld("electron", {
     expenses: {
         getAllExpenses: (page?: number, limit?: number) =>
             ipcInvoke("expenses:getAll", { page, limit }),
-
         createExpense: (name: string, amount: number) =>
             ipcInvoke("expenses:create", name, amount),
-
         deleteExpense: (expenseId: string) =>
             ipcInvoke("expenses:delete", expenseId),
-
         updateExpense: (expenseId: string, name: string, amount: number) =>
             ipcInvoke("expenses:update", expenseId, name, amount),
-
         getExpense: (expenseId: string) =>
             ipcInvoke("expenses:get", expenseId)
     },
@@ -100,7 +89,6 @@ electron.contextBridge.exposeInMainWorld("electron", {
     employees: {
         getAllEmployees: (page?: number, limit?: number) =>
             ipcInvoke("employees:getAll", { page, limit }),
-
         createEmployee: (
             name: string,
             salary: number,
@@ -108,10 +96,8 @@ electron.contextBridge.exposeInMainWorld("electron", {
             shiftEnd: string
         ) =>
             ipcInvoke("employees:create", name, salary, shiftStart, shiftEnd),
-
         deleteEmployee: (employeeId: string) =>
             ipcInvoke("employees:delete", employeeId),
-
         updateEmployee: (
             employeeId: string,
             name: string,
@@ -127,7 +113,6 @@ electron.contextBridge.exposeInMainWorld("electron", {
                 shiftStart,
                 shiftEnd
             ),
-
         getEmployee: (employeeId: string) =>
             ipcInvoke("employees:get", employeeId)
     },
@@ -135,10 +120,8 @@ electron.contextBridge.exposeInMainWorld("electron", {
     attendance: {
         getActive: (date: string) =>
             ipcInvoke("attendance:getActive", date),
-
         getReport: (month: number, year: number) =>
             ipcInvoke("attendance:getReport", month, year),
-
         mark: (
             employeeId: string,
             date: string,
@@ -151,7 +134,6 @@ electron.contextBridge.exposeInMainWorld("electron", {
     suppliers: {
         getAllSuppliers: (page?: number, limit?: number) =>
             ipcInvoke("suppliers:getAll", { page, limit }),
-
         createSupplier: (
             name: string,
             phone: string,
@@ -159,10 +141,8 @@ electron.contextBridge.exposeInMainWorld("electron", {
             address: string
         ) =>
             ipcInvoke("suppliers:create", name, phone, governorate, address),
-
         deleteSupplier: (id: string) =>
             ipcInvoke("suppliers:delete", id),
-
         updateSupplier: (
             id: string,
             name: string,
@@ -178,7 +158,6 @@ electron.contextBridge.exposeInMainWorld("electron", {
                 governorate,
                 address
             ),
-
         getSupplier: (id: string) =>
             ipcInvoke("suppliers:get", id)
     },
@@ -191,48 +170,32 @@ electron.contextBridge.exposeInMainWorld("electron", {
     invoicesPurchase: {
         getAll: (page?: number, limit?: number) =>
             ipcInvoke("invoicesPurchase:getAll", { page, limit }),
-
         get: (id: string) =>
             ipcInvoke("invoicesPurchase:get", id),
-
         create: (
-            supplier: string,
-            items: any[],
-            discount: number,
-            tax: number,
-            paid: number,
-            notes: string
+            invoiceNo: string,
+            invoiceDate: string,
+            items: InvoicePurchaseSubmitItem[]
         ) =>
             ipcInvoke(
                 "invoicesPurchase:create",
-                supplier,
-                items,
-                discount,
-                tax,
-                paid,
-                notes
+                invoiceNo,
+                invoiceDate,
+                items
             ),
-
         update: (
             id: string,
-            supplier: string,
-            items: any[],
-            discount: number,
-            tax: number,
-            paid: number,
-            notes: string
+            invoiceNo: string,
+            invoiceDate: string,
+            items: InvoicePurchaseSubmitItem[]
         ) =>
             ipcInvoke(
                 "invoicesPurchase:update",
                 id,
-                supplier,
-                items,
-                discount,
-                tax,
-                paid,
-                notes
+                invoiceNo,
+                invoiceDate,
+                items
             ),
-
         delete: (id: string) =>
             ipcInvoke("invoicesPurchase:delete", id)
     }

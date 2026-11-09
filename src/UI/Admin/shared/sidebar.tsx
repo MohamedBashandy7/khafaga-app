@@ -32,6 +32,11 @@ export default function Sidebar() {
                     icon="zmdi-widgets"
                     label="الاصناف"
                 />
+                <SidebarItem
+                    to="/invoices/purchase"
+                    icon="zmdi-receipt"
+                    label="فواتير الشراء"
+                />
                 {/* <SidebarItem
                     to="/categories"
                     icon="zmdi-widgets"
@@ -42,11 +47,7 @@ export default function Sidebar() {
                     icon="zmdi-truck"
                     label="الموردين"
                 />
-                <SidebarItem
-                    to="/invoices/purchase"
-                    icon="zmdi-receipt"
-                    label="فواتير الشراء"
-                />
+
                 <SidebarItem
                     to="/products"
                     icon="zmdi-shopping-basket"
