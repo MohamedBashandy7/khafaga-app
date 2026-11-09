@@ -5,10 +5,15 @@ import * as categoriesService from "../services/categories.service.js"
 export function registerCategoriesIPC() {
     ipcHandle(
         "categories:getAll",
-        async (params: { page?: number; limit?: number }) => {
+        async (params: {
+            page?: number
+            limit?: number
+            search?: string
+        }) => {
             return categoriesService.getAllCategories(
                 params?.page,
-                params?.limit
+                params?.limit,
+                params?.search
             )
         }
     )

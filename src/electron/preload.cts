@@ -20,8 +20,11 @@ electron.contextBridge.exposeInMainWorld("electron", {
     },
 
     categories: {
-        getAllCategories: (page?: number, limit?: number) =>
-            ipcInvoke("categories:getAll", { page, limit }),
+       getAllCategories: (
+            page?: number,
+            limit?: number,
+            search?: string
+        ) => ipcInvoke("categories:getAll", { page : page, limit : limit, search : search }),
         createCategory: (code: string, name: string) =>
             ipcInvoke("categories:create", { code, name }),
         deleteCategory: (code: string) =>

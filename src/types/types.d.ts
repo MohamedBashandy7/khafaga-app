@@ -59,9 +59,12 @@ type Category = {
     name: string
 }
 
-type CategoriesResponse = {
+interface CategoriesResponse {
     success: boolean
-    data: Category[]
+    data: CategoryData[]
+    total: number
+    currentPage: number
+    totalPages: number
     message?: string
 }
 
@@ -479,7 +482,11 @@ interface Window {
             set(theme: ThemeSettings): Promise<void>
         }
         categories: {
-            getAllCategories(page?: number, limit?: number): Promise<CategoriesResponse>
+            getAllCategories: (
+                page?: number,
+                limit?: number,
+                search?: string
+            ) => Promise<CategoriesResponse>
             createCategory(code: string, name: string): Promise<CreateCategoryResponse>
             deleteCategory(code: string): Promise<DeleteCategoryResponse>
             updateCategory(

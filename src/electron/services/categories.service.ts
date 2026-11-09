@@ -55,37 +55,91 @@ function validateCategory(code: string, name: string): ValidationResult {
     }
 }
 
+
 export async function getAllCategories(
     page = 1,
-    limit = 10
+    limit = 10,
+    searchTerm = ""
 ): Promise<CategoriesResponse> {
     try {
         const database = ensureCategoriesTable()
         const safePage = Math.max(1, Math.floor(Number(page) || 1))
         const safeLimit = Math.max(1, Math.floor(Number(limit) || 10))
-        const offset = (safePage - 1) * safeLimit
+        const search = String(searchTerm ?? "").trim()
+        const searchPattern = `%${search}%`
 
-        const categories = database
-            .prepare(`
-                SELECT code, name
-                FROM categories
-                ORDER BY code ASC
-                LIMIT ? OFFSET ?
-            `)
-            .all(safeLimit, offset) as CategoryData[]
+        const whereClause = search
+            ? "WHERE code LIKE ? OR name LIKE ?"
+            : ""
 
+        const searchParams = search
+            ? [searchPattern, searchPattern]
+            : []
+
+        const countSQL = `
+            SELECT COUNT(*) as total
+            FROM categories
+            ${whereClause}
+        `
+
+        const countStatement = database.prepare(countSQL)
+        const totalResult = countStatement.get(...searchParams) as { total: number }
+
+        const total = totalResult.total
+        const totalPages = Math.ceil(total / safeLimit)
+        const currentPage = Math.min(safePage, Math.max(totalPages, 1))
+        const offset = (currentPage - 1) * safeLimit
+
+        const categoriesSQL = `
+            SELECT code, name
+            FROM categories
+            ${whereClause}
+            ORDER BY code ASC
+            LIMIT ? OFFSET ?
+        `
+
+        const queryParams = [...searchParams, safeLimit, offset]
+        const categoriesStatement = database.prepare(categoriesSQL)
+        const categories = categoriesStatement.all(...queryParams) as CategoryData[]
+
+        const formatSQL = (sql: string, params: unknown[]) => {
+            let index = 0
+
+            return sql.replace(/\?/g, () => {
+                const value = params[index++]
+
+                if (typeof value === "string") {
+                    return `'${value.replace(/'/g, "''")}'`
+                }
+
+                if (value === null) {
+                    return "NULL"
+                }
+
+                return String(value)
+            }).trim()
+        }
+
+        console.log("Incoming:", { page, limit, searchTerm })
         return {
             success: true,
-            data: categories
+            data: categories,
+            total,
+            currentPage,
+            totalPages
         }
     } catch (error) {
         return {
             success: false,
             data: [],
+            total: 0,
+            currentPage: 1,
+            totalPages: 0,
             message: error instanceof Error ? error.message : "فشل جلب التصنيفات"
         }
     }
 }
+
 
 export async function createCategory(
     code: string,
