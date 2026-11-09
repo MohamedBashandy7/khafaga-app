@@ -6,6 +6,9 @@ type InvoicePurchaseLine = {
     price: number
 }
 
+type InvoicePurchaseStatus = "" | "depleted" | "remaining"
+type InvoicePurchaseSortOrder = "newest" | "oldest"
+
 type InvoicePurchaseData = {
     id: string
     invoiceNo: string
@@ -18,6 +21,7 @@ type InvoicePurchaseData = {
         total: number | null
     }[]
     total: number | null
+    isDepleted: boolean
 }
 
 type PurchaseItemStock = {
@@ -238,7 +242,9 @@ function getInvoiceData(id: number): InvoicePurchaseData | null {
             categories.name AS category_name,
             items.quantity,
             items.price,
-            items.total
+            items.total,
+            items.remaining_quantity,
+            items.is_closed
         FROM purchase_invoice_items AS items
         JOIN categories ON categories.code = items.category_code
         WHERE items.invoice_id = ?
@@ -249,9 +255,18 @@ function getInvoiceData(id: number): InvoicePurchaseData | null {
         quantity: number | null
         price: number
         total: number | null
+        remaining_quantity: number | null
+        is_closed: number
     }[]
 
     const hasUnknownQuantity = items.some(item => item.quantity === null)
+
+const isDepleted =
+    items.length > 0 &&
+    items.every(item =>
+        item.is_closed === 1 ||
+        item.remaining_quantity === 0
+    )
 
     return {
         id: String(invoice.id),
@@ -266,7 +281,8 @@ function getInvoiceData(id: number): InvoicePurchaseData | null {
         })),
         total: hasUnknownQuantity
             ? null
-            : items.reduce((sum, item) => sum + (item.total ?? 0), 0)
+            : items.reduce((sum, item) => sum + (item.total ?? 0), 0),
+        isDepleted
     }
 }
 
@@ -325,7 +341,10 @@ export async function deductPurchaseInvoiceCategory(
         }
 
         if (!Number.isFinite(amount) || amount <= 0) {
-            return { success: false, message: "كمية الخصم يجب أن تكون أكبر من صفر" }
+            return {
+                success: false,
+                message: "كمية الخصم يجب أن تكون أكبر من صفر"
+            }
         }
 
         const db = getDatabase()
@@ -498,7 +517,9 @@ export async function getAllInvoicesPurchase(
     page = 1,
     limit = 10,
     invoiceNo = "",
-    invoiceDate = ""
+    invoiceDate = "",
+    status: InvoicePurchaseStatus = "",
+    sortOrder: InvoicePurchaseSortOrder = "newest"
 ): Promise<InvoicesPurchaseResponse> {
     try {
         ensureInvoicesPurchaseTables()
@@ -508,6 +529,10 @@ export async function getAllInvoicesPurchase(
         const safeLimit = Math.max(1, Math.floor(Number(limit) || 10))
         const safeInvoiceNo = String(invoiceNo ?? "").trim()
         const safeInvoiceDate = String(invoiceDate ?? "").trim()
+        const safeStatus: InvoicePurchaseStatus =
+            status === "depleted" || status === "remaining" ? status : ""
+        const safeSortOrder =
+            sortOrder === "oldest" ? "ASC" : "DESC"
 
         const conditions: string[] = []
         const params: (string | number)[] = []
@@ -522,27 +547,81 @@ export async function getAllInvoicesPurchase(
             params.push(safeInvoiceDate)
         }
 
+        if (safeStatus === "depleted") {
+            conditions.push(`
+                EXISTS (
+                    SELECT 1
+                    FROM purchase_invoice_items AS stock_items
+                    WHERE stock_items.invoice_id = purchase_invoices.id
+                )
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM purchase_invoice_items AS stock_items
+                    WHERE stock_items.invoice_id = purchase_invoices.id
+                    AND stock_items.is_closed = 0
+                    AND (
+                        stock_items.remaining_quantity IS NULL
+                        OR stock_items.remaining_quantity > 0
+                    )
+                )
+            `)
+        }
+
+        if (safeStatus === "remaining") {
+            conditions.push(`
+                EXISTS (
+                    SELECT 1
+                    FROM purchase_invoice_items AS stock_items
+                    WHERE stock_items.invoice_id = purchase_invoices.id
+                    AND stock_items.is_closed = 0
+                    AND (
+                        stock_items.remaining_quantity IS NULL
+                        OR stock_items.remaining_quantity > 0
+                    )
+                )
+            `)
+        }
+
         const whereClause = conditions.length
             ? `WHERE ${conditions.join(" AND ")}`
             : ""
 
-        const offset = (safePage - 1) * safeLimit
+        const countResult = db.prepare(`
+            SELECT COUNT(*) AS total
+            FROM purchase_invoices
+            ${whereClause}
+        `).get(...params) as { total: number }
+
+        const total = countResult.total
+        const totalPages = Math.ceil(total / safeLimit)
+        const currentPage = Math.min(
+            safePage,
+            Math.max(totalPages, 1)
+        )
+
+        const offset = (currentPage - 1) * safeLimit
 
         const invoices = db.prepare(`
             SELECT id
             FROM purchase_invoices
             ${whereClause}
-            ORDER BY id DESC
+            ORDER BY invoice_date ${safeSortOrder}, id ${safeSortOrder}
             LIMIT ? OFFSET ?
         `).all(...params, safeLimit, offset) as { id: number }[]
 
         const data = invoices
             .map(invoice => getInvoiceData(invoice.id))
-            .filter((invoice): invoice is InvoicePurchaseData => invoice !== null)
+            .filter(
+                (invoice): invoice is InvoicePurchaseData =>
+                    invoice !== null
+            )
 
         return {
             success: true,
-            data: data as unknown as InvoicePurchase[]
+            data: data as unknown as InvoicePurchase[],
+            total,
+            currentPage,
+            totalPages
         }
     } catch (error) {
         console.error("GET ALL PURCHASE INVOICES ERROR:", error)
@@ -550,11 +629,13 @@ export async function getAllInvoicesPurchase(
         return {
             success: false,
             data: [],
+            total: 0,
+            currentPage: 1,
+            totalPages: 0,
             message: "فشل جلب الفواتير من قاعدة البيانات"
         }
     }
 }
-
 export async function getInvoicePurchase(
     id: string
 ): Promise<GetInvoicePurchaseResponse> {

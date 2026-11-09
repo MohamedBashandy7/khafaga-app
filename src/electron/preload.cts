@@ -1,4 +1,3 @@
-
 /// <reference path="../types/types.d.ts" />
 
 const electron = require("electron")
@@ -20,13 +19,17 @@ electron.contextBridge.exposeInMainWorld("electron", {
     },
 
     categories: {
-       getAllCategories: (
+        getAllCategories: (
             page?: number,
             limit?: number,
             search?: string
-        ) => ipcInvoke("categories:getAll", { page : page, limit : limit, search : search }),
+        ) => ipcInvoke("categories:getAll", {
+            page,
+            limit,
+            search
+        }),
         searchCategoriesStock: (search?: string) =>
-            ipcInvoke("categories:searchStock", { search : search }),
+            ipcInvoke("categories:searchStock", { search }),
         createCategory: (code: string, name: string) =>
             ipcInvoke("categories:create", { code, name }),
         deleteCategory: (code: string) =>
@@ -177,14 +180,18 @@ electron.contextBridge.exposeInMainWorld("electron", {
             page?: number,
             limit?: number,
             invoiceNo?: string,
-            invoiceDate?: string
+            invoiceDate?: string,
+            status?: "" | "depleted" | "remaining",
+            sortOrder?: "newest" | "oldest"
         ) =>
-            ipcInvoke("invoicesPurchase:getAll", 
-               { page : page,
-                limit : limit,
-                invoiceNo : invoiceNo,
-                invoiceDate : invoiceDate}
-            ),
+            ipcInvoke("invoicesPurchase:getAll", {
+                page,
+                limit,
+                invoiceNo,
+                invoiceDate,
+                status,
+                sortOrder
+            }),
         get: (id: string) =>
             ipcInvoke("invoicesPurchase:get", id),
         create: (
@@ -211,26 +218,25 @@ electron.contextBridge.exposeInMainWorld("electron", {
                 invoiceDate,
                 items
             ),
-            deduct: (
-                invoiceId: string,
-                categoryCode: string,
-                amount: number
-            ) =>
-                ipcInvoke(
-                    "invoicesPurchase:deduct",
-                    invoiceId,
-                    categoryCode,
-                    amount
-                ),
-
-            closeCategory: (
-                invoiceId: string,
-                categoryCode: string
-            ) =>
-                ipcInvoke(
-                    "invoicesPurchase:closeCategory",
-                    invoiceId,
-                    categoryCode
+        deduct: (
+            invoiceId: string,
+            categoryCode: string,
+            amount: number
+        ) =>
+            ipcInvoke(
+                "invoicesPurchase:deduct",
+                invoiceId,
+                categoryCode,
+                amount
+            ),
+        closeCategory: (
+            invoiceId: string,
+            categoryCode: string
+        ) =>
+            ipcInvoke(
+                "invoicesPurchase:closeCategory",
+                invoiceId,
+                categoryCode
             ),
         delete: (id: string) =>
             ipcInvoke("invoicesPurchase:delete", id)

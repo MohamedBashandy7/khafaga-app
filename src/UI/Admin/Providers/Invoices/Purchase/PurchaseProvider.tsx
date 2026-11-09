@@ -1,3 +1,4 @@
+
 import { useCallback, useState } from "react"
 import { InvoicesPurchaseContext } from "./PurchaseContext"
 
@@ -7,6 +8,9 @@ export default function InvoicesPurchaseProvider({
     children: React.ReactNode
 }) {
     const [invoices, setInvoices] = useState<InvoicePurchase[]>([])
+    const [total, setTotal] = useState(0)
+    const [currentPage, setCurrentPage] = useState(1)
+    const [totalPages, setTotalPages] = useState(0)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
@@ -15,7 +19,9 @@ export default function InvoicesPurchaseProvider({
             page = 1,
             limit = 10,
             invoiceNo = "",
-            invoiceDate = ""
+            invoiceDate = "",
+            status: InvoicePurchaseStatus = "",
+            sortOrder: InvoicePurchaseSortOrder = "newest"
         ) => {
             setLoading(true)
             setError(null)
@@ -25,18 +31,27 @@ export default function InvoicesPurchaseProvider({
                     page,
                     limit,
                     invoiceNo,
-                    invoiceDate
+                    invoiceDate,
+                    status,
+                    sortOrder
                 )
 
                 if (result.success) {
                     setInvoices(result.data)
+                    setTotal(result.total)
+                    setCurrentPage(result.currentPage)
+                    setTotalPages(result.totalPages)
                 } else {
                     setError(result.message || "فشل جلب الفواتير")
                     setInvoices([])
+                    setTotal(0)
+                    setTotalPages(0)
                 }
             } catch {
                 setError("تعذر الاتصال بالسيرفر")
                 setInvoices([])
+                setTotal(0)
+                setTotalPages(0)
             } finally {
                 setLoading(false)
             }
@@ -48,6 +63,9 @@ export default function InvoicesPurchaseProvider({
         <InvoicesPurchaseContext.Provider
             value={{
                 invoices,
+                total,
+                currentPage,
+                totalPages,
                 loading,
                 error,
                 fetchInvoices

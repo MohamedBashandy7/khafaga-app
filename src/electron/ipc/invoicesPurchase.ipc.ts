@@ -9,12 +9,16 @@ export function registerInvoicesPurchaseIPC() {
             limit?: number
             invoiceNo?: string
             invoiceDate?: string
+            status?: "" | "depleted" | "remaining"
+            sortOrder?: "newest" | "oldest"
         }) => {
             return invoicesPurchaseService.getAllInvoicesPurchase(
                 params?.page,
                 params?.limit,
                 params?.invoiceNo,
-                params?.invoiceDate
+                params?.invoiceDate,
+                params?.status,
+                params?.sortOrder
             )
         }
     )

@@ -377,11 +377,18 @@ type InvoicePurchase = {
     invoiceDate: string
     items: InvoicePurchaseItem[]
     total: number | null
+    isDepleted: boolean
 }
+
+type InvoicePurchaseStatus = "" | "depleted" | "remaining"
+type InvoicePurchaseSortOrder = "newest" | "oldest"
 
 type InvoicesPurchaseResponse = {
     success: boolean
     data: InvoicePurchase[]
+    total: number
+    currentPage: number
+    totalPages: number
     message?: string
 }
 
@@ -410,6 +417,7 @@ type DeleteInvoicePurchaseResponse = {
     success: boolean
     message?: string
 }
+
 type PurchaseStockOperationResponse = {
     success: boolean
     message: string
@@ -614,7 +622,9 @@ interface Window {
                 page?: number,
                 limit?: number,
                 invoiceNo?: string,
-                invoiceDate?: string
+                invoiceDate?: string,
+                status?: InvoicePurchaseStatus,
+                sortOrder?: InvoicePurchaseSortOrder
             ): Promise<InvoicesPurchaseResponse>
             get(id: string): Promise<GetInvoicePurchaseResponse>
             create(
@@ -633,7 +643,6 @@ interface Window {
                 categoryCode: string,
                 amount: number
             ): Promise<PurchaseStockOperationResponse>
-
             closeCategory(
                 invoiceId: string,
                 categoryCode: string

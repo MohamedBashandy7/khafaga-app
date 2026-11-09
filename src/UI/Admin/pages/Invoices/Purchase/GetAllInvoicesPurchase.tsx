@@ -2,6 +2,7 @@
 import { useInvoicesPurchase } from "../../../Hooks/useInvoicesPurchase"
 import Loader from "../../../shared/loading"
 import NoData from "../../../shared/nodata"
+import Pagination from "../../../shared/Pagination"
 import { useEffect, useState } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import {
@@ -24,31 +25,41 @@ const getDateFromValue = (value: string) => {
 }
 
 export function GetAllInvoicesPurchase() {
-    const { invoices, loading, error, fetchInvoices } = useInvoicesPurchase()
+    const {
+        invoices,
+        total,
+        currentPage: fetchedPage,
+        totalPages,
+        loading,
+        error,
+        fetchInvoices
+    } = useInvoicesPurchase()
+
     const navigate = useNavigate()
 
     const [deletingId, setDeletingId] = useState<string | null>(null)
     const [invoiceNo, setInvoiceNo] = useState("")
     const [invoiceDate, setInvoiceDate] = useState("")
+    const [status, setStatus] = useState<"" | "depleted" | "remaining">("")
+    const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest")
+    const [currentPage, setCurrentPage] = useState(1)
     const [calendarOpen, setCalendarOpen] = useState(false)
     const [calendarMonth, setCalendarMonth] = useState(() => {
         const today = new Date()
         return new Date(today.getFullYear(), today.getMonth(), 1)
     })
 
+    const itemsPerPage = 10
+
     const year = calendarMonth.getFullYear()
     const month = calendarMonth.getMonth()
     const firstDay = new Date(year, month, 1).getDay()
     const daysInMonth = new Date(year, month + 1, 0).getDate()
+
     const calendarDays = Array.from(
         { length: daysInMonth },
         (_, index) => index + 1
     )
-
-    const monthName = calendarMonth.toLocaleDateString("ar-EG", {
-        month: "long",
-        year: "numeric"
-    })
 
     const weekdays = [
         "الأحد",
@@ -61,24 +72,51 @@ export function GetAllInvoicesPurchase() {
     ]
 
     useEffect(() => {
-        fetchInvoices()
-    }, [fetchInvoices])
+        fetchInvoices(
+            currentPage,
+            itemsPerPage,
+            invoiceNo.trim(),
+            invoiceDate,
+            status,
+            sortOrder
+        )
+    }, [
+        fetchInvoices,
+        currentPage,
+        invoiceNo,
+        invoiceDate,
+        status,
+        sortOrder
+    ])
+
+    useEffect(() => {
+        if (fetchedPage !== currentPage && !loading) {
+            setCurrentPage(fetchedPage)
+        }
+    }, [fetchedPage, currentPage, loading])
 
     const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
-        fetchInvoices(1, 10, invoiceNo.trim(), invoiceDate)
+        setCurrentPage(1)
     }
 
     const handleResetSearch = () => {
         setInvoiceNo("")
         setInvoiceDate("")
+        setStatus("")
+        setSortOrder("newest")
+        setCurrentPage(1)
         setCalendarOpen(false)
-        fetchInvoices(1, 10, "", "")
+    }
+
+    const handlePageChange = (page: number) => {
+        setCurrentPage(page)
     }
 
     const handleSelectDate = (day: number) => {
         const selectedDate = new Date(year, month, day)
         setInvoiceDate(formatDateValue(selectedDate))
+        setCurrentPage(1)
         setCalendarOpen(false)
     }
 
@@ -93,7 +131,15 @@ export function GetAllInvoicesPurchase() {
 
             if (result.success) {
                 showSuccess("تم حذف الفاتورة بنجاح")
-                await fetchInvoices(1, 10, invoiceNo.trim(), invoiceDate)
+
+                await fetchInvoices(
+                    currentPage,
+                    itemsPerPage,
+                    invoiceNo.trim(),
+                    invoiceDate,
+                    status,
+                    sortOrder
+                )
             } else {
                 showError(result.message || "فشل الحذف")
             }
@@ -131,7 +177,10 @@ export function GetAllInvoicesPurchase() {
                     <input
                         type="text"
                         value={invoiceNo}
-                        onChange={event => setInvoiceNo(event.target.value)}
+                        onChange={event => {
+                            setInvoiceNo(event.target.value)
+                            setCurrentPage(1)
+                        }}
                         placeholder="ابحث برقم الفاتورة..."
                         className="w-full rounded-lg border border-white/10 bg-black/20 px-4 py-3 text-white outline-none transition-colors placeholder:text-white/40 focus:border-green-500"
                     />
@@ -146,10 +195,12 @@ export function GetAllInvoicesPurchase() {
                         type="button"
                         onClick={() => {
                             if (invoiceDate) {
+                                const selectedDate = getDateFromValue(invoiceDate)
+
                                 setCalendarMonth(
                                     new Date(
-                                        getDateFromValue(invoiceDate).getFullYear(),
-                                        getDateFromValue(invoiceDate).getMonth(),
+                                        selectedDate.getFullYear(),
+                                        selectedDate.getMonth(),
                                         1
                                     )
                                 )
@@ -189,9 +240,7 @@ export function GetAllInvoicesPurchase() {
                                 <button
                                     type="button"
                                     onClick={() =>
-                                        setCalendarMonth(
-                                            new Date(year, month - 1, 1)
-                                        )
+                                        setCalendarMonth(new Date(year, month - 1, 1))
                                     }
                                     className="rounded-lg p-2 text-white hover:bg-white/10"
                                 >
@@ -211,11 +260,7 @@ export function GetAllInvoicesPurchase() {
                                     value={month}
                                     onChange={event =>
                                         setCalendarMonth(
-                                            new Date(
-                                                year,
-                                                Number(event.target.value),
-                                                1
-                                            )
+                                            new Date(year, Number(event.target.value), 1)
                                         )
                                     }
                                     className="rounded-lg border border-white/10 bg-[#29293b] px-3 py-2 text-sm text-white outline-none"
@@ -238,11 +283,7 @@ export function GetAllInvoicesPurchase() {
                                     value={year}
                                     onChange={event =>
                                         setCalendarMonth(
-                                            new Date(
-                                                Number(event.target.value),
-                                                month,
-                                                1
-                                            )
+                                            new Date(Number(event.target.value), month, 1)
                                         )
                                     }
                                     className="rounded-lg border border-white/10 bg-[#29293b] px-3 py-2 text-sm text-white outline-none"
@@ -264,9 +305,7 @@ export function GetAllInvoicesPurchase() {
                                 <button
                                     type="button"
                                     onClick={() =>
-                                        setCalendarMonth(
-                                            new Date(year, month + 1, 1)
-                                        )
+                                        setCalendarMonth(new Date(year, month + 1, 1))
                                     }
                                     className="rounded-lg p-2 text-white hover:bg-white/10"
                                 >
@@ -341,6 +380,7 @@ export function GetAllInvoicesPurchase() {
                                             )
                                         )
                                         setInvoiceDate(formatDateValue(new Date()))
+                                        setCurrentPage(1)
                                         setCalendarOpen(false)
                                     }}
                                     className="text-sm text-green-400 hover:text-green-300"
@@ -352,6 +392,7 @@ export function GetAllInvoicesPurchase() {
                                     type="button"
                                     onClick={() => {
                                         setInvoiceDate("")
+                                        setCurrentPage(1)
                                         setCalendarOpen(false)
                                     }}
                                     className="text-sm text-red-400 hover:text-red-300"
@@ -361,6 +402,27 @@ export function GetAllInvoicesPurchase() {
                             </div>
                         </div>
                     )}
+                </div>
+
+                <div className="min-w-[180px]">
+                    <label className="mb-2 block text-sm font-medium text-white">
+                        حالة المخزون
+                    </label>
+
+                    <select
+                        value={status}
+                        onChange={event => {
+                            setStatus(
+                                event.target.value as "" | "depleted" | "remaining"
+                            )
+                            setCurrentPage(1)
+                        }}
+                        className="w-full rounded-lg border border-white/10 bg-[#1c1c2b] px-4 py-3 text-white outline-none focus:border-green-500"
+                    >
+                        <option value="">كل الفواتير</option>
+                        <option value="remaining">متبقي بها مخزون</option>
+                        <option value="depleted">مخزونها مستنفد</option>
+                    </select>
                 </div>
 
                 <button
@@ -397,15 +459,33 @@ export function GetAllInvoicesPurchase() {
                                 <th className="px-6 py-4 text-sm font-bold uppercase">
                                     رقم الفاتورة
                                 </th>
+
                                 <th className="px-6 py-4 text-sm font-bold uppercase">
-                                    تاريخ الفاتورة
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSortOrder(current =>
+                                                current === "newest" ? "oldest" : "newest"
+                                            )
+                                            setCurrentPage(1)
+                                        }}
+                                        className="inline-flex cursor-pointer items-center gap-2"
+                                    >
+                                        تاريخ الفاتورة
+                                        <span>
+                                            {sortOrder === "newest" ? "↓" : "↑"}
+                                        </span>
+                                    </button>
                                 </th>
+
                                 <th className="px-6 py-4 text-sm font-bold uppercase">
                                     عدد التصنيفات
                                 </th>
+
                                 <th className="px-6 py-4 text-sm font-bold uppercase">
                                     الإجمالي
                                 </th>
+
                                 <th className="px-6 py-4 text-sm font-bold uppercase">
                                     الإجراءات
                                 </th>
@@ -417,7 +497,11 @@ export function GetAllInvoicesPurchase() {
                                 invoices.map(inv => (
                                     <tr
                                         key={inv.id}
-                                        className="transition-colors hover:bg-white/5"
+                                        className={`transition-colors ${
+                                            inv.isDepleted
+                                                ? "bg-red-500/20 hover:bg-red-500/30"
+                                                : "hover:bg-white/5"
+                                        }`}
                                     >
                                         <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
                                             {inv.invoiceNo}
@@ -483,7 +567,7 @@ export function GetAllInvoicesPurchase() {
                                                 </svg>
                                             }
                                             message={
-                                                invoiceNo || invoiceDate
+                                                invoiceNo || invoiceDate || status
                                                     ? "لا توجد فواتير مطابقة للبحث"
                                                     : "لا توجد فواتير شراء"
                                             }
@@ -495,6 +579,18 @@ export function GetAllInvoicesPurchase() {
                     </table>
                 )}
             </div>
+
+            {!loading && total > 0 && (
+                <div className="mt-4">
+                    <Pagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        total={total}
+                        onPageChange={handlePageChange}
+                        isRtl
+                    />
+                </div>
+            )}
         </div>
     )
 }
