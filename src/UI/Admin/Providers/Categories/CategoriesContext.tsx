@@ -1,11 +1,9 @@
+
 import { createContext } from "react"
 
 export interface Category {
-    _id: string
+    code: string
     name: string
-    status: "1" | "0"
-    created_at: string
-    updated_at: string
 }
 
 export type CategoriesContextType = {

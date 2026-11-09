@@ -16,10 +16,12 @@ type StaticData = {
     totalCPU: number
     CPUModel: string
 }
+
 type ThemeSettings = {
     type: "image" | "gradient"
     value: string
 }
+
 type LoginCredentials = {
     email: string
     password: string
@@ -47,51 +49,49 @@ type FieldError = {
     path: string
     location: string
 }
+
 type LoginResult =
     | { success: true; user: { name: string; role: string } }
     | { success: false; message: string; fieldErrors?: FieldError[] }
 
-/*
-    Category Types
-*/
 type Category = {
-    _id: string
+    code: string
     name: string
-    status: "1" | "0"
-    created_at: string
-    updated_at: string
 }
+
 type CategoriesResponse = {
     success: boolean
     data: Category[]
     message?: string
 }
+
 type CreateCategoryResponse = {
     success: boolean
     data?: Category
     message?: string
     errors?: FieldError[]
 }
+
 type DeleteCategoryResponse = {
     success: boolean
     message?: string
     data?: string
 }
+
 type GetCategoryResponse = {
     success: boolean
     data?: Category
     message?: string
     errors?: FieldError[]
 }
-interface UpdateCategoryResponse {
+
+type UpdateCategoryResponse = {
     success: boolean
     data?: Category
     message?: string
     errors?: FieldError[]
 }
-/*
-    Products Types
-*/
+
 type Product = {
     _id: string
     name: string
@@ -107,6 +107,7 @@ type Product = {
     created_at: string
     updated_at: string
 }
+
 type ProductsResponse = {
     success: boolean
     data: Product[]
@@ -139,9 +140,6 @@ type GetProductResponse = {
     message?: string
     errors?: FieldError[]
 }
-/*
-    Expenses Types
-*/
 
 type Expense = {
     _id: string
@@ -183,10 +181,6 @@ type GetExpenseResponse = {
     message?: string
     errors?: FieldError[]
 }
-
-/*
-    Employees Types
-*/
 
 type Employee = {
     _id: string
@@ -231,9 +225,6 @@ type GetEmployeeResponse = {
     errors?: FieldError[]
 }
 
-/*
-    Attendance Types
-*/
 type ActiveAttendanceItem = {
     employee: {
         _id: string
@@ -262,6 +253,7 @@ type MarkAttendanceResponse = {
     message?: string
     errors?: FieldError[]
 }
+
 type MonthlyReportItem = {
     date: string
     employee: {
@@ -284,9 +276,7 @@ type MonthlyReportResponse = {
     data: MonthlyReportItem[]
     message?: string
 }
-/*
-    Governorate Types
-*/
+
 type Governorate = {
     _id: string
     name: string
@@ -298,9 +288,6 @@ type GovernoratesResponse = {
     message?: string
 }
 
-/*
-    Supplier Types
-*/
 type Supplier = {
     _id: string
     name: string
@@ -343,9 +330,7 @@ type GetSupplierResponse = {
     message?: string
     errors?: FieldError[]
 }
-/*
-    Invoice Purchase Types
-*/
+
 type InvoicePurchaseItem = {
     product: { _id: string; name: string }
     quantity: number
@@ -368,78 +353,88 @@ type InvoicePurchase = {
     updated_at: string
 }
 
-type InvoicesPurchaseResponse = { success: boolean; data: InvoicePurchase[]; message?: string }
+type InvoicesPurchaseResponse = {
+    success: boolean
+    data: InvoicePurchase[]
+    message?: string
+}
+
 type GetInvoicePurchaseResponse = {
     success: boolean
     data?: InvoicePurchase
     message?: string
     errors?: FieldError[]
 }
+
 type CreateInvoicePurchaseResponse = {
     success: boolean
     data?: InvoicePurchase
     message?: string
     errors?: FieldError[]
 }
+
 type UpdateInvoicePurchaseResponse = {
     success: boolean
     data?: InvoicePurchase
     message?: string
     errors?: FieldError[]
 }
-type DeleteInvoicePurchaseResponse = { success: boolean; message?: string }
+
+type DeleteInvoicePurchaseResponse = {
+    success: boolean
+    message?: string
+}
 
 type EventPayloadMapping = {
     statistics: Stats
     getStatisticsData: StaticData
-    // auth
     getToken: string | null
     login: LoginResult
     logout: void
-    
+
     "auth:isSetupRequired": boolean
     "auth:setupSuperAdmin": SetupAdminResult
     "auth:getCurrentUser": CurrentAuthUser | null
 
     "theme:get": ThemeSettings
     "theme:set": void
-    // categories
+
     "categories:getAll": CategoriesResponse
     "categories:create": CreateCategoryResponse
     "categories:delete": DeleteCategoryResponse
     "categories:update": UpdateCategoryResponse
     "categories:get": GetCategoryResponse
-    // products
+
     "products:getAll": ProductsResponse
     "products:create": CreateProductResponse
     "products:delete": DeleteProductResponse
     "products:update": UpdateProductResponse
     "products:get": GetProductResponse
-    // expenses
+
     "expenses:getAll": ExpensesResponse
     "expenses:create": CreateExpenseResponse
     "expenses:delete": DeleteExpenseResponse
     "expenses:update": UpdateExpenseResponse
     "expenses:get": GetExpenseResponse
-    // employees
+
     "employees:getAll": EmployeesResponse
     "employees:create": CreateEmployeeResponse
     "employees:delete": DeleteEmployeeResponse
     "employees:update": UpdateEmployeeResponse
     "employees:get": GetEmployeeResponse
-    // attendance
+
     "attendance:getActive": ActiveAttendanceResponse
     "attendance:getReport": MonthlyReportResponse
     "attendance:mark": MarkAttendanceResponse
-    // suppliers
+
     "suppliers:getAll": SuppliersResponse
     "suppliers:create": CreateSupplierResponse
     "suppliers:delete": DeleteSupplierResponse
     "suppliers:update": UpdateSupplierResponse
     "suppliers:get": GetSupplierResponse
-    // governorates
+
     "governorates:getAll": GovernoratesResponse
-    // invoices purchase
+
     "invoicesPurchase:getAll": InvoicesPurchaseResponse
     "invoicesPurchase:get": GetInvoicePurchaseResponse
     "invoicesPurchase:create": CreateInvoicePurchaseResponse
@@ -448,6 +443,7 @@ type EventPayloadMapping = {
 }
 
 type UnsupscribeFunc = () => void
+
 declare module "*.png" {
     const value: string
     export default value
@@ -477,7 +473,6 @@ interface Window {
             isSetupRequired: () => Promise<boolean>
             setupSuperAdmin: (data: SetupAdminCredentials) => Promise<SetupAdminResult>
             getCurrentUser: () => Promise<CurrentAuthUser | null>
-
         }
         theme: {
             get(): Promise<ThemeSettings>
@@ -485,10 +480,14 @@ interface Window {
         }
         categories: {
             getAllCategories(page?: number, limit?: number): Promise<CategoriesResponse>
-            createCategory(name: string): Promise<CreateCategoryResponse>
-            deleteCategory(categoryId: string): Promise<DeleteCategoryResponse>
-            updateCategory(categoryId: string, name: string): Promise<UpdateCategoryResponse>
-            getCategory(categoryId: string): Promise<GetCategoryResponse>
+            createCategory(code: string, name: string): Promise<CreateCategoryResponse>
+            deleteCategory(code: string): Promise<DeleteCategoryResponse>
+            updateCategory(
+                oldCode: string,
+                newCode: string,
+                name: string
+            ): Promise<UpdateCategoryResponse>
+            getCategory(code: string): Promise<GetCategoryResponse>
         }
         products: {
             getAllProducts(page?: number, limit?: number): Promise<ProductsResponse>

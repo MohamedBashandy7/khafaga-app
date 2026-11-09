@@ -1,7 +1,12 @@
+
 import { useCallback, useState } from "react"
 import { CategoriesContext, type Category } from "./CategoriesContext"
 
-export default function CategoriesProvider({ children }: { children: React.ReactNode }) {
+export default function CategoriesProvider({
+    children
+}: {
+    children: React.ReactNode
+}) {
     const [categories, setCategories] = useState<Category[]>([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -12,16 +17,19 @@ export default function CategoriesProvider({ children }: { children: React.React
             setError(null)
 
             try {
-                const result = await window.electron.categories.getAllCategories(page, limit)
+                const result = await window.electron.categories.getAllCategories(
+                    page,
+                    limit
+                )
 
                 if (result.success) {
                     setCategories(result.data)
                 } else {
-                    setError(result.message || "فشل جلب الأقسام")
+                    setError(result.message || "فشل جلب التصنيفات")
                     setCategories([])
                 }
             } catch {
-                setError("تعذر الاتصال بالسيرفر")
+                setError("فشل جلب التصنيفات من قاعدة البيانات")
                 setCategories([])
             } finally {
                 setLoading(false)
@@ -37,7 +45,8 @@ export default function CategoriesProvider({ children }: { children: React.React
                 loading,
                 error,
                 fetchCategories
-            }}>
+            }}
+        >
             {children}
         </CategoriesContext.Provider>
     )

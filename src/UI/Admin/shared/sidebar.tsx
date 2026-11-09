@@ -30,6 +30,11 @@ export default function Sidebar() {
                 <SidebarItem
                     to="/categories"
                     icon="zmdi-widgets"
+                    label="الاصناف"
+                />
+                {/* <SidebarItem
+                    to="/categories"
+                    icon="zmdi-widgets"
                     label="الأقسام"
                 />
                 <SidebarItem
@@ -67,7 +72,7 @@ export default function Sidebar() {
                     to="/attendance/report"
                     icon="zmdi-file-text"
                     label="تقرير الحضور"
-                />
+                /> */}
                 {/* 
                 <SidebarItem
                     to="/icons"
