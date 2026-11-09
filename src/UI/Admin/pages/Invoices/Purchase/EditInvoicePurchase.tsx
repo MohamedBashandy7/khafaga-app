@@ -1,8 +1,14 @@
 import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
+import DatePicker, { registerLocale } from "react-datepicker"
+import { format, parseISO } from "date-fns"
+import { ar } from "date-fns/locale"
+import "react-datepicker/dist/react-datepicker.css"
 import { showError, showSuccess } from "../../../../../services/sweetAlert"
 import Loader from "../../../shared/loading"
 import { SearchableDropdown } from "../../../shared/SearchableDropdown"
+
+registerLocale("ar", ar)
 
 type CategoryOption = {
     _id: string
@@ -64,7 +70,7 @@ export function EditInvoicePurchase() {
                 setItems(
                     invoice.items.map(item => ({
                         categoryCode: item.categoryCode,
-                        quantity: String(item.quantity),
+                        quantity: item.quantity === null ? "unknown" : String(item.quantity),
                         price: String(item.price)
                     }))
                 )
@@ -112,11 +118,12 @@ export function EditInvoicePurchase() {
         setErrors([])
     }
 
-    const total = items.reduce(
-        (sum, item) =>
-            sum + (Number(item.quantity) || 0) * (Number(item.price) || 0),
-        0
-    )
+    const total = items.some(item => item.quantity === "unknown")
+        ? null
+        : items.reduce(
+              (sum, item) => sum + Number(item.quantity) * (Number(item.price) || 0),
+              0
+          )
 
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault()
@@ -167,9 +174,10 @@ export function EditInvoicePurchase() {
                 }
 
                 if (
-                    item.quantity.trim() === "" ||
-                    !Number.isFinite(quantity) ||
-                    quantity <= 0
+                    item.quantity !== "unknown" &&
+                    (item.quantity.trim() === "" ||
+                        !Number.isFinite(quantity) ||
+                        quantity <= 0)
                 ) {
                     newErrors.push({
                         type: "field",
@@ -212,7 +220,7 @@ export function EditInvoicePurchase() {
         try {
             const submitItems: InvoicePurchaseSubmitItem[] = items.map(item => ({
                 categoryCode: item.categoryCode,
-                quantity: Number(item.quantity),
+                quantity: item.quantity === "unknown" ? null : Number(item.quantity),
                 price: Number(item.price)
             }))
 
@@ -281,6 +289,53 @@ export function EditInvoicePurchase() {
                     </div>
 
                     <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                        <style>{`
+                            .purchase-datepicker-popper {
+                                z-index: 9999 !important;
+                                direction: rtl;
+                            }
+                            .purchase-datepicker-calendar {
+                                background: #090f1c !important;
+                                border: 1px solid rgba(255, 255, 255, 0.15) !important;
+                                border-radius: 12px !important;
+                                color: #ffffff !important;
+                                font-family: inherit;
+                                direction: rtl;
+                                overflow: hidden;
+                            }
+                            .purchase-datepicker-calendar .react-datepicker__header {
+                                background: #111827 !important;
+                                border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+                            }
+                            .purchase-datepicker-calendar .react-datepicker__current-month,
+                            .purchase-datepicker-calendar .react-datepicker__day-name,
+                            .purchase-datepicker-calendar .react-datepicker__day,
+                            .purchase-datepicker-calendar .react-datepicker__time-name {
+                                color: #ffffff !important;
+                            }
+                            .purchase-datepicker-calendar .react-datepicker__day:hover {
+                                background: #374151 !important;
+                                border-radius: 7px;
+                            }
+                            .purchase-datepicker-calendar .react-datepicker__day--selected,
+                            .purchase-datepicker-calendar .react-datepicker__day--keyboard-selected {
+                                background: #blue-600 !important;
+                                color: #ffffff !important;
+                                border-radius: 7px;
+                            }
+                            .purchase-datepicker-calendar .react-datepicker__day--outside-month {
+                                color: #64748b !important;
+                            }
+                            .purchase-datepicker-calendar .react-datepicker__navigation-icon::before {
+                                border-color: #ffffff !important;
+                            }
+                            .purchase-datepicker-calendar .react-datepicker__triangle {
+                                display: none;
+                            }
+                            .purchase-datepicker-calendar .react-datepicker__month-container {
+                                float: none;
+                            }
+                        `}</style>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="mb-2 block text-sm font-medium text-white/80">
@@ -307,14 +362,23 @@ export function EditInvoicePurchase() {
                                 <label className="mb-2 block text-sm font-medium text-white/80">
                                     تاريخ الفاتورة
                                 </label>
-                                <input
-                                    type="date"
-                                    value={invoiceDate}
-                                    onChange={event => {
-                                        setInvoiceDate(event.target.value)
+                                <DatePicker
+                                    selected={invoiceDate ? parseISO(invoiceDate) : null}
+                                    onChange={(date: Date | null) => {
+                                        setInvoiceDate(date ? format(date, "yyyy-MM-dd") : "")
                                         setErrors([])
                                     }}
-                                    className="w-full rounded-xl bg-white/5 px-4 py-3 text-white outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-blue-500/50"
+                                    locale="ar"
+                                    calendarStartDay={6}
+                                    dateFormat="dd/MM/yyyy"
+                                    placeholderText="يوم/شهر/سنة"
+                                    popperPlacement="bottom-start"
+                                    popperClassName="purchase-datepicker-popper"
+                                    calendarClassName="purchase-datepicker-calendar"
+                                    wrapperClassName="w-full"
+                                    portalId="purchase-datepicker-portal"
+                                    showPopperArrow={false}
+                                    className="w-full rounded-xl bg-white/5 px-4 py-3 text-white outline-none ring-1 ring-white/10 focus:ring-2 ring-blue-500/50"
                                     required
                                 />
                                 {invoiceDateError && (
@@ -393,7 +457,21 @@ export function EditInvoicePurchase() {
                                                     </td>
 
                                                     <td className="px-4 py-3">
-                                                        <input
+                                                        <select
+                                                            value={item.quantity === "unknown" ? "unknown" : "number"}
+                                                            onChange={event =>
+                                                                updateItemField(
+                                                                    index,
+                                                                    "quantity",
+                                                                    event.target.value === "unknown" ? "unknown" : ""
+                                                                )
+                                                            }
+                                                            className="mb-2 w-full rounded-xl bg-white/5 px-3 py-2 text-center text-white outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-green-500/50"
+                                                        >
+                                                            <option value="number" className="bg-slate-900">رقم</option>
+                                                            <option value="unknown" className="bg-slate-900">غير معروف</option>
+                                                        </select>
+                                                        {item.quantity !== "unknown" && <input
                                                             type="number"
                                                             value={item.quantity}
                                                             onChange={event =>
@@ -407,7 +485,7 @@ export function EditInvoicePurchase() {
                                                             step="1"
                                                             inputMode="numeric"
                                                             className="w-full rounded-xl bg-white/5 px-3 py-2 text-center text-white outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-blue-500/50"
-                                                        />
+                                                        />}
                                                         {quantityError && (
                                                             <p className="mt-1 text-xs text-red-400">
                                                                 {quantityError}
@@ -439,10 +517,9 @@ export function EditInvoicePurchase() {
                                                     </td>
 
                                                     <td className="px-4 py-3 text-sm">
-                                                        {(
-                                                            (Number(item.quantity) || 0) *
-                                                            (Number(item.price) || 0)
-                                                        ).toFixed(2)}
+                                                        {item.quantity === "unknown"
+                                                            ? "غير معروف"
+                                                            : (Number(item.quantity) * (Number(item.price) || 0)).toFixed(2)}
                                                     </td>
 
                                                     <td className="px-4 py-3">
@@ -493,7 +570,7 @@ export function EditInvoicePurchase() {
 
                         <div className="flex justify-end text-white bg-white/5 rounded-xl p-4">
                             <span>
-                                إجمالي الفاتورة: <strong>{total.toFixed(2)}</strong>
+                                إجمالي الفاتورة: <strong>{total === null ? "غير معروف" : total.toFixed(2)}</strong>
                             </span>
                         </div>
 

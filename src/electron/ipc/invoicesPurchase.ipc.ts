@@ -1,4 +1,3 @@
-
 import { ipcHandle } from "../utils.js"
 import * as invoicesPurchaseService from "../services/invoicesPurchase.service.js"
 
@@ -24,7 +23,7 @@ export function registerInvoicesPurchaseIPC() {
             invoiceDate: string,
             items: {
                 categoryCode: string
-                quantity: number
+                quantity: number | null
                 price: number
             }[]
         ) => {
@@ -44,7 +43,7 @@ export function registerInvoicesPurchaseIPC() {
             invoiceDate: string,
             items: {
                 categoryCode: string
-                quantity: number
+                quantity: number | null
                 price: number
             }[]
         ) => {

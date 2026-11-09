@@ -1,9 +1,8 @@
-
 import { getDatabase } from "../database/database.js"
 
 type InvoicePurchaseLine = {
     categoryCode: string
-    quantity: number
+    quantity: number | null
     price: number
 }
 
@@ -14,11 +13,91 @@ type InvoicePurchaseData = {
     items: {
         categoryCode: string
         categoryName: string
-        quantity: number
+        quantity: number | null
         price: number
-        total: number
+        total: number | null
     }[]
-    total: number
+    total: number | null
+}
+
+function migratePurchaseInvoiceItems() {
+    const db = getDatabase()
+
+    const columns = db.prepare(`
+        PRAGMA table_info(purchase_invoice_items)
+    `).all() as {
+        name: string
+        notnull: number
+    }[]
+
+    const quantityColumn = columns.find(column => column.name === "quantity")
+    const totalColumn = columns.find(column => column.name === "total")
+
+    if (!quantityColumn || !totalColumn) return
+
+    if (quantityColumn.notnull === 0 && totalColumn.notnull === 0) {
+        return
+    }
+
+    const indexes = db.prepare(`
+        SELECT sql
+        FROM sqlite_master
+        WHERE type = 'index'
+        AND tbl_name = 'purchase_invoice_items'
+        AND sql IS NOT NULL
+    `).all() as { sql: string }[]
+
+    db.exec("PRAGMA foreign_keys = OFF")
+
+    try {
+        db.exec("BEGIN")
+
+        db.exec(`
+            CREATE TABLE purchase_invoice_items_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                invoice_id INTEGER NOT NULL,
+                category_code TEXT NOT NULL,
+                quantity REAL,
+                price REAL NOT NULL,
+                total REAL,
+                FOREIGN KEY (invoice_id) REFERENCES purchase_invoices(id) ON DELETE CASCADE,
+                FOREIGN KEY (category_code) REFERENCES categories(code)
+            );
+
+            INSERT INTO purchase_invoice_items_new (
+                id,
+                invoice_id,
+                category_code,
+                quantity,
+                price,
+                total
+            )
+            SELECT
+                id,
+                invoice_id,
+                category_code,
+                quantity,
+                price,
+                total
+            FROM purchase_invoice_items;
+
+            DROP TABLE purchase_invoice_items;
+
+            ALTER TABLE purchase_invoice_items_new
+            RENAME TO purchase_invoice_items;
+        `)
+
+        for (const index of indexes) {
+            db.exec(index.sql)
+        }
+
+        db.exec("COMMIT")
+    } catch (error) {
+        db.exec("ROLLBACK")
+        throw error
+    } finally {
+        db.exec("PRAGMA foreign_keys = ON")
+    }
 }
 
 function ensureInvoicesPurchaseTables() {
@@ -35,13 +114,15 @@ function ensureInvoicesPurchaseTables() {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             invoice_id INTEGER NOT NULL,
             category_code TEXT NOT NULL,
-            quantity REAL NOT NULL,
+            quantity REAL,
             price REAL NOT NULL,
-            total REAL NOT NULL,
+            total REAL,
             FOREIGN KEY (invoice_id) REFERENCES purchase_invoices(id) ON DELETE CASCADE,
             FOREIGN KEY (category_code) REFERENCES categories(code)
         );
     `)
+
+    migratePurchaseInvoiceItems()
 }
 
 function validateInvoice(
@@ -66,7 +147,10 @@ function validateInvoice(
             return "يجب اختيار تصنيف لكل سطر"
         }
 
-        if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+        if (
+            item.quantity !== null &&
+            (!Number.isFinite(item.quantity) || item.quantity <= 0)
+        ) {
             return "الكمية يجب أن تكون أكبر من صفر"
         }
 
@@ -107,10 +191,12 @@ function getInvoiceData(id: number): InvoicePurchaseData | null {
     `).all(id) as {
         category_code: string
         category_name: string
-        quantity: number
+        quantity: number | null
         price: number
-        total: number
+        total: number | null
     }[]
+
+    const hasUnknownQuantity = items.some(item => item.quantity === null)
 
     return {
         id: String(invoice.id),
@@ -123,7 +209,9 @@ function getInvoiceData(id: number): InvoicePurchaseData | null {
             price: item.price,
             total: item.total
         })),
-        total: items.reduce((sum, item) => sum + item.total, 0)
+        total: hasUnknownQuantity
+            ? null
+            : items.reduce((sum, item) => sum + (item.total ?? 0), 0)
     }
 }
 
@@ -150,7 +238,7 @@ function insertInvoiceItems(
             item.categoryCode.trim(),
             item.quantity,
             item.price,
-            item.quantity * item.price
+            item.quantity === null ? null : item.quantity * item.price
         )
     }
 }

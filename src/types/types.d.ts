@@ -334,14 +334,14 @@ type GetSupplierResponse = {
 type InvoicePurchaseItem = {
     categoryCode: string
     categoryName: string
-    quantity: number
+    quantity: number | null
     price: number
-    total: number
+    total: number | null
 }
 
 type InvoicePurchaseSubmitItem = {
     categoryCode: string
-    quantity: number
+    quantity: number | null
     price: number
 }
 
@@ -350,7 +350,7 @@ type InvoicePurchase = {
     invoiceNo: string
     invoiceDate: string
     items: InvoicePurchaseItem[]
-    total: number
+    total: number | null
 }
 
 type InvoicesPurchaseResponse = {

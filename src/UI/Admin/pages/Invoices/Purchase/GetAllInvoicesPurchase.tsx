@@ -86,10 +86,10 @@ export function GetAllInvoicesPurchase() {
                                         {new Date(inv.invoiceDate).toLocaleDateString("ar-EG")}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        {inv.items?.length ?? 0}
+                                        {inv.items.length}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        {inv.total.toFixed(2)}
+                                        {inv.total === null ? "غير معروف" : inv.total.toFixed(2)}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                                         <div className="flex gap-2 justify-center">
@@ -101,7 +101,7 @@ export function GetAllInvoicesPurchase() {
                                             <button
                                                 onClick={() => handleDelete(inv.id)}
                                                 disabled={deletingId === inv.id}
-                                                className="cursor-pointer rounded bg-red-500/40 px-3 py-1 text-sm text-red-300 hover:bg-red-500/50 transition-colors">
+                                                className="cursor-pointer rounded bg-red-500/40 px-3 py-1 text-sm text-red-300 hover:bg-red-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                                                 {deletingId === inv.id ? "جاري..." : "حذف"}
                                             </button>
                                         </div>
