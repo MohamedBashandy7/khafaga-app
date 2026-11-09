@@ -17,6 +17,25 @@ type ValidationResult =
           message: string
       }
 
+type StockInvoice = {
+    invoiceId: number
+    invoiceNo: string
+    invoiceDate: string
+    quantity: number | null
+    remainingQuantity: number | null
+    isClosed: number
+    hasUnknownQuantity: number
+}
+
+type StockCategory = {
+    code: string
+    name: string
+    invoiceCount: number
+    availableQuantity: number
+    unknownQuantityInvoices: number
+    invoices: StockInvoice[]
+}
+
 function ensureCategoriesTable() {
     const database = getDatabase()
 
@@ -55,7 +74,6 @@ function validateCategory(code: string, name: string): ValidationResult {
     }
 }
 
-
 export async function getAllCategories(
     page = 1,
     limit = 10,
@@ -83,7 +101,9 @@ export async function getAllCategories(
         `
 
         const countStatement = database.prepare(countSQL)
-        const totalResult = countStatement.get(...searchParams) as { total: number }
+        const totalResult = countStatement.get(...searchParams) as {
+            total: number
+        }
 
         const total = totalResult.total
         const totalPages = Math.ceil(total / safeLimit)
@@ -102,25 +122,6 @@ export async function getAllCategories(
         const categoriesStatement = database.prepare(categoriesSQL)
         const categories = categoriesStatement.all(...queryParams) as CategoryData[]
 
-        const formatSQL = (sql: string, params: unknown[]) => {
-            let index = 0
-
-            return sql.replace(/\?/g, () => {
-                const value = params[index++]
-
-                if (typeof value === "string") {
-                    return `'${value.replace(/'/g, "''")}'`
-                }
-
-                if (value === null) {
-                    return "NULL"
-                }
-
-                return String(value)
-            }).trim()
-        }
-
-        console.log("Incoming:", { page, limit, searchTerm })
         return {
             success: true,
             data: categories,
@@ -135,11 +136,135 @@ export async function getAllCategories(
             total: 0,
             currentPage: 1,
             totalPages: 0,
-            message: error instanceof Error ? error.message : "فشل جلب التصنيفات"
+            message: error instanceof Error
+                ? error.message
+                : "فشل جلب التصنيفات"
         }
     }
 }
 
+export async function searchCategoriesStock(
+    searchTerm = ""
+): Promise<{
+    success: boolean
+    data: StockCategory[]
+    message?: string
+}> {
+    try {
+        const database = ensureCategoriesTable()
+        const search = String(searchTerm ?? "").trim()
+
+        if (!search) {
+            return {
+                success: true,
+                data: []
+            }
+        }
+
+const categories = database.prepare(`
+    SELECT
+        c.code,
+        c.name,
+        COUNT(s.invoice_id) AS invoiceCount,
+        COALESCE(SUM(s.availableQuantity), 0) AS availableQuantity,
+        COALESCE(SUM(s.hasUnknownQuantity), 0) AS unknownQuantityInvoices
+    FROM categories c
+    INNER JOIN (
+        SELECT
+            invoice_id,
+            category_code,
+            SUM(
+                CASE
+                    WHEN is_closed = 0
+                    THEN COALESCE(remaining_quantity, 0)
+                    ELSE 0
+                END
+            ) AS availableQuantity,
+            MAX(
+                CASE
+                    WHEN is_closed = 0 AND remaining_quantity IS NULL
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS hasUnknownQuantity
+        FROM purchase_invoice_items
+        GROUP BY invoice_id, category_code
+        HAVING MIN(is_closed) = 0
+    ) s ON s.category_code = c.code
+    WHERE c.code LIKE ? OR c.name LIKE ?
+    GROUP BY c.code, c.name
+    ORDER BY c.name ASC
+`).all(`%${search}%`, `%${search}%`) as {
+    code: string
+    name: string
+    invoiceCount: number
+    availableQuantity: number
+    unknownQuantityInvoices: number
+}[]
+
+const invoicesStatement = database.prepare(`
+    SELECT
+        pi.id AS invoiceId,
+        pi.invoice_no AS invoiceNo,
+        pi.invoice_date AS invoiceDate,
+        SUM(pii.quantity) AS quantity,
+        CASE
+            WHEN MAX(
+                CASE
+                    WHEN pii.is_closed = 0
+                        AND pii.remaining_quantity IS NULL
+                    THEN 1
+                    ELSE 0
+                END
+            ) = 1
+            THEN NULL
+            ELSE COALESCE(
+                SUM(
+                    CASE
+                        WHEN pii.is_closed = 0
+                        THEN COALESCE(pii.remaining_quantity, 0)
+                        ELSE 0
+                    END
+                ),
+                0
+            )
+        END AS remainingQuantity,
+        MIN(pii.is_closed) AS isClosed,
+        MAX(
+            CASE
+                WHEN pii.is_closed = 0
+                    AND pii.remaining_quantity IS NULL
+                THEN 1
+                ELSE 0
+            END
+        ) AS hasUnknownQuantity
+    FROM purchase_invoice_items pii
+    INNER JOIN purchase_invoices pi
+        ON pi.id = pii.invoice_id
+    WHERE pii.category_code = ?
+    GROUP BY pi.id, pi.invoice_no, pi.invoice_date
+    HAVING MIN(pii.is_closed) = 0
+    ORDER BY pi.invoice_date ASC, pi.invoice_no ASC, pi.id ASC
+`)
+        const data: StockCategory[] = categories.map(category => ({
+            ...category,
+            invoices: invoicesStatement.all(category.code) as unknown as StockInvoice[]
+        }))
+
+        return {
+            success: true,
+            data
+        }
+    } catch (error) {
+        return {
+            success: false,
+            data: [],
+            message: error instanceof Error
+                ? error.message
+                : "فشل البحث عن الصنف"
+        }
+    }
+}
 
 export async function createCategory(
     code: string,

@@ -94,7 +94,30 @@ type UpdateCategoryResponse = {
     message?: string
     errors?: FieldError[]
 }
+type StockInvoice = {
+    invoiceId: number
+    invoiceNo: string
+    invoiceDate: string
+    quantity: number | null
+    remainingQuantity: number | null
+    isClosed: number
+    hasUnknownQuantity: number
+}
 
+type StockCategory = {
+    code: string
+    name: string
+    invoiceCount: number
+    availableQuantity: number
+    unknownQuantityInvoices: number
+    invoices: StockInvoice[]
+}
+
+type SearchCategoriesStockResponse = {
+    success: boolean
+    data: StockCategory[]
+    message?: string
+}
 type Product = {
     _id: string
     name: string
@@ -387,7 +410,11 @@ type DeleteInvoicePurchaseResponse = {
     success: boolean
     message?: string
 }
-
+type PurchaseStockOperationResponse = {
+    success: boolean
+    message: string
+    remainingQuantity?: number
+}
 type EventPayloadMapping = {
     statistics: Stats
     getStatisticsData: StaticData
@@ -407,6 +434,7 @@ type EventPayloadMapping = {
     "categories:delete": DeleteCategoryResponse
     "categories:update": UpdateCategoryResponse
     "categories:get": GetCategoryResponse
+    "categories:searchStock": SearchCategoriesStockResponse
 
     "products:getAll": ProductsResponse
     "products:create": CreateProductResponse
@@ -443,6 +471,8 @@ type EventPayloadMapping = {
     "invoicesPurchase:create": CreateInvoicePurchaseResponse
     "invoicesPurchase:update": UpdateInvoicePurchaseResponse
     "invoicesPurchase:delete": DeleteInvoicePurchaseResponse
+    "invoicesPurchase:deduct": PurchaseStockOperationResponse
+    "invoicesPurchase:closeCategory": PurchaseStockOperationResponse
 }
 
 type UnsupscribeFunc = () => void
@@ -494,6 +524,9 @@ interface Window {
                 newCode: string,
                 name: string
             ): Promise<UpdateCategoryResponse>
+            searchCategoriesStock(
+                search?: string
+            ): Promise<SearchCategoriesStockResponse>
             getCategory(code: string): Promise<GetCategoryResponse>
         }
         products: {
@@ -577,7 +610,12 @@ interface Window {
             getAll(): Promise<GovernoratesResponse>
         }
         invoicesPurchase: {
-            getAll(page?: number, limit?: number): Promise<InvoicesPurchaseResponse>
+            getAll(
+                page?: number,
+                limit?: number,
+                invoiceNo?: string,
+                invoiceDate?: string
+            ): Promise<InvoicesPurchaseResponse>
             get(id: string): Promise<GetInvoicePurchaseResponse>
             create(
                 invoiceNo: string,
@@ -590,6 +628,16 @@ interface Window {
                 invoiceDate: string,
                 items: InvoicePurchaseSubmitItem[]
             ): Promise<UpdateInvoicePurchaseResponse>
+            deduct(
+                invoiceId: string,
+                categoryCode: string,
+                amount: number
+            ): Promise<PurchaseStockOperationResponse>
+
+            closeCategory(
+                invoiceId: string,
+                categoryCode: string
+            ): Promise<PurchaseStockOperationResponse>
             delete(id: string): Promise<DeleteInvoicePurchaseResponse>
         }
     }

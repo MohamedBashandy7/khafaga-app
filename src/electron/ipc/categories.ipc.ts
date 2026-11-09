@@ -1,4 +1,3 @@
-
 import { ipcHandle } from "../utils.js"
 import * as categoriesService from "../services/categories.service.js"
 
@@ -13,6 +12,15 @@ export function registerCategoriesIPC() {
             return categoriesService.getAllCategories(
                 params?.page,
                 params?.limit,
+                params?.search
+            )
+        }
+    )
+
+    ipcHandle(
+        "categories:searchStock",
+        async (params: { search?: string }) => {
+            return categoriesService.searchCategoriesStock(
                 params?.search
             )
         }

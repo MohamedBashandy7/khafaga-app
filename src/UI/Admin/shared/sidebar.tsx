@@ -37,6 +37,11 @@ export default function Sidebar() {
                     icon="zmdi-receipt"
                     label="فواتير الشراء"
                 />
+                <SidebarItem
+                    to="/categories/stock"
+                    icon="zmdi-search"
+                    label="بحث الأصناف"
+                />
                 {/* <SidebarItem
                     to="/categories"
                     icon="zmdi-widgets"

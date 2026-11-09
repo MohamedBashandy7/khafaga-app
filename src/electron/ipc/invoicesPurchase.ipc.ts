@@ -4,10 +4,17 @@ import * as invoicesPurchaseService from "../services/invoicesPurchase.service.j
 export function registerInvoicesPurchaseIPC() {
     ipcHandle(
         "invoicesPurchase:getAll",
-        async (params: { page?: number; limit?: number }) => {
+        async (params: {
+            page?: number
+            limit?: number
+            invoiceNo?: string
+            invoiceDate?: string
+        }) => {
             return invoicesPurchaseService.getAllInvoicesPurchase(
                 params?.page,
-                params?.limit
+                params?.limit,
+                params?.invoiceNo,
+                params?.invoiceDate
             )
         }
     )
@@ -52,6 +59,34 @@ export function registerInvoicesPurchaseIPC() {
                 invoiceNo,
                 invoiceDate,
                 items
+            )
+        }
+    )
+
+    ipcHandle(
+        "invoicesPurchase:deduct",
+        async (
+            invoiceId: string,
+            categoryCode: string,
+            amount: number
+        ) => {
+            return invoicesPurchaseService.deductPurchaseInvoiceCategory(
+                invoiceId,
+                categoryCode,
+                amount
+            )
+        }
+    )
+
+    ipcHandle(
+        "invoicesPurchase:closeCategory",
+        async (
+            invoiceId: string,
+            categoryCode: string
+        ) => {
+            return invoicesPurchaseService.closePurchaseInvoiceCategory(
+                invoiceId,
+                categoryCode
             )
         }
     )

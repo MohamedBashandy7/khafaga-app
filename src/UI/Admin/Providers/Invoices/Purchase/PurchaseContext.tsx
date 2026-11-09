@@ -4,7 +4,12 @@ export type InvoicesPurchaseContextType = {
     invoices: InvoicePurchase[]
     loading: boolean
     error: string | null
-    fetchInvoices: (page?: number, limit?: number) => Promise<void>
+    fetchInvoices: (
+        page?: number,
+        limit?: number,
+        invoiceNo?: string,
+        invoiceDate?: string
+    ) => Promise<void>
 }
 
 export const InvoicesPurchaseContext = createContext<InvoicesPurchaseContextType>({

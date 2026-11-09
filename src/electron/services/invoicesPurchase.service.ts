@@ -20,6 +20,12 @@ type InvoicePurchaseData = {
     total: number | null
 }
 
+type PurchaseItemStock = {
+    id: number
+    remaining_quantity: number | null
+    is_closed: number
+}
+
 function migratePurchaseInvoiceItems() {
     const db = getDatabase()
 
@@ -30,74 +36,121 @@ function migratePurchaseInvoiceItems() {
         notnull: number
     }[]
 
+    if (!columns.length) return
+
+    const hasColumn = (name: string) =>
+        columns.some(column => column.name === name)
+
     const quantityColumn = columns.find(column => column.name === "quantity")
     const totalColumn = columns.find(column => column.name === "total")
 
-    if (!quantityColumn || !totalColumn) return
+    if (
+        quantityColumn &&
+        totalColumn &&
+        (quantityColumn.notnull !== 0 || totalColumn.notnull !== 0)
+    ) {
+        const indexes = db.prepare(`
+            SELECT sql
+            FROM sqlite_master
+            WHERE type = 'index'
+            AND tbl_name = 'purchase_invoice_items'
+            AND sql IS NOT NULL
+        `).all() as { sql: string }[]
 
-    if (quantityColumn.notnull === 0 && totalColumn.notnull === 0) {
-        return
-    }
+        const remainingExpression = hasColumn("remaining_quantity")
+            ? "remaining_quantity"
+            : "quantity"
 
-    const indexes = db.prepare(`
-        SELECT sql
-        FROM sqlite_master
-        WHERE type = 'index'
-        AND tbl_name = 'purchase_invoice_items'
-        AND sql IS NOT NULL
-    `).all() as { sql: string }[]
+        const closedExpression = hasColumn("is_closed")
+            ? "is_closed"
+            : "0"
 
-    db.exec("PRAGMA foreign_keys = OFF")
+        db.exec("PRAGMA foreign_keys = OFF")
 
-    try {
-        db.exec("BEGIN")
+        try {
+            db.exec("BEGIN")
 
-        db.exec(`
-            CREATE TABLE purchase_invoice_items_new (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                invoice_id INTEGER NOT NULL,
-                category_code TEXT NOT NULL,
-                quantity REAL,
-                price REAL NOT NULL,
-                total REAL,
-                FOREIGN KEY (invoice_id) REFERENCES purchase_invoices(id) ON DELETE CASCADE,
-                FOREIGN KEY (category_code) REFERENCES categories(code)
-            );
+            db.exec(`
+                CREATE TABLE purchase_invoice_items_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    invoice_id INTEGER NOT NULL,
+                    category_code TEXT NOT NULL,
+                    quantity REAL,
+                    price REAL NOT NULL,
+                    total REAL,
+                    remaining_quantity REAL,
+                    is_closed INTEGER NOT NULL DEFAULT 0,
+                    FOREIGN KEY (invoice_id) REFERENCES purchase_invoices(id) ON DELETE CASCADE,
+                    FOREIGN KEY (category_code) REFERENCES categories(code)
+                );
 
-            INSERT INTO purchase_invoice_items_new (
-                id,
-                invoice_id,
-                category_code,
-                quantity,
-                price,
-                total
-            )
-            SELECT
-                id,
-                invoice_id,
-                category_code,
-                quantity,
-                price,
-                total
-            FROM purchase_invoice_items;
+                INSERT INTO purchase_invoice_items_new (
+                    id,
+                    invoice_id,
+                    category_code,
+                    quantity,
+                    price,
+                    total,
+                    remaining_quantity,
+                    is_closed
+                )
+                SELECT
+                    id,
+                    invoice_id,
+                    category_code,
+                    quantity,
+                    price,
+                    total,
+                    ${remainingExpression},
+                    ${closedExpression}
+                FROM purchase_invoice_items;
 
-            DROP TABLE purchase_invoice_items;
+                DROP TABLE purchase_invoice_items;
 
-            ALTER TABLE purchase_invoice_items_new
-            RENAME TO purchase_invoice_items;
-        `)
+                ALTER TABLE purchase_invoice_items_new
+                RENAME TO purchase_invoice_items;
+            `)
 
-        for (const index of indexes) {
-            db.exec(index.sql)
+            for (const index of indexes) {
+                db.exec(index.sql)
+            }
+
+            db.exec("COMMIT")
+        } catch (error) {
+            db.exec("ROLLBACK")
+            throw error
+        } finally {
+            db.exec("PRAGMA foreign_keys = ON")
         }
-
-        db.exec("COMMIT")
-    } catch (error) {
-        db.exec("ROLLBACK")
-        throw error
-    } finally {
-        db.exec("PRAGMA foreign_keys = ON")
     }
+
+    const updatedColumns = db.prepare(`
+        PRAGMA table_info(purchase_invoice_items)
+    `).all() as { name: string }[]
+
+    const updatedHasColumn = (name: string) =>
+        updatedColumns.some(column => column.name === name)
+
+    if (!updatedHasColumn("remaining_quantity")) {
+        db.exec(`
+            ALTER TABLE purchase_invoice_items
+            ADD COLUMN remaining_quantity REAL
+        `)
+    }
+
+    if (!updatedHasColumn("is_closed")) {
+        db.exec(`
+            ALTER TABLE purchase_invoice_items
+            ADD COLUMN is_closed INTEGER NOT NULL DEFAULT 0
+        `)
+    }
+
+    db.exec(`
+        UPDATE purchase_invoice_items
+        SET remaining_quantity = quantity
+        WHERE remaining_quantity IS NULL
+        AND quantity IS NOT NULL
+    `)
 }
 
 function ensureInvoicesPurchaseTables() {
@@ -117,6 +170,8 @@ function ensureInvoicesPurchaseTables() {
             quantity REAL,
             price REAL NOT NULL,
             total REAL,
+            remaining_quantity REAL,
+            is_closed INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (invoice_id) REFERENCES purchase_invoices(id) ON DELETE CASCADE,
             FOREIGN KEY (category_code) REFERENCES categories(code)
         );
@@ -227,9 +282,11 @@ function insertInvoiceItems(
             category_code,
             quantity,
             price,
-            total
+            total,
+            remaining_quantity,
+            is_closed
         )
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, 0)
     `)
 
     for (const item of items) {
@@ -238,29 +295,246 @@ function insertInvoiceItems(
             item.categoryCode.trim(),
             item.quantity,
             item.price,
-            item.quantity === null ? null : item.quantity * item.price
+            item.quantity === null ? null : item.quantity * item.price,
+            item.quantity
         )
+    }
+}
+
+export async function deductPurchaseInvoiceCategory(
+    invoiceId: string,
+    categoryCode: string,
+    amount: number
+): Promise<{
+    success: boolean
+    message: string
+    remainingQuantity?: number
+}> {
+    try {
+        ensureInvoicesPurchaseTables()
+
+        const parsedInvoiceId = Number(invoiceId)
+        const safeCategoryCode = String(categoryCode ?? "").trim()
+
+        if (!Number.isInteger(parsedInvoiceId) || parsedInvoiceId <= 0) {
+            return { success: false, message: "رقم الفاتورة غير صحيح" }
+        }
+
+        if (!safeCategoryCode) {
+            return { success: false, message: "كود الصنف غير صحيح" }
+        }
+
+        if (!Number.isFinite(amount) || amount <= 0) {
+            return { success: false, message: "كمية الخصم يجب أن تكون أكبر من صفر" }
+        }
+
+        const db = getDatabase()
+
+        db.exec("BEGIN IMMEDIATE")
+
+        try {
+            const items = db.prepare(`
+                SELECT id, remaining_quantity, is_closed
+                FROM purchase_invoice_items
+                WHERE invoice_id = ?
+                AND category_code = ?
+                ORDER BY id ASC
+            `).all(parsedInvoiceId, safeCategoryCode) as PurchaseItemStock[]
+
+            if (!items.length) {
+                db.exec("ROLLBACK")
+                return {
+                    success: false,
+                    message: "الصنف غير موجود في هذه الفاتورة"
+                }
+            }
+
+            const openItems = items.filter(item => item.is_closed === 0)
+
+            if (!openItems.length) {
+                db.exec("ROLLBACK")
+                return {
+                    success: false,
+                    message: "هذا الصنف مغلق بالفعل"
+                }
+            }
+
+            if (openItems.some(item => item.remaining_quantity === null)) {
+                db.exec("ROLLBACK")
+                return {
+                    success: false,
+                    message: "لا يمكن الخصم من صنف كميته غير معروفة"
+                }
+            }
+
+            const totalRemaining = openItems.reduce(
+                (sum, item) => sum + (item.remaining_quantity ?? 0),
+                0
+            )
+
+            if (amount > totalRemaining) {
+                db.exec("ROLLBACK")
+                return {
+                    success: false,
+                    message: `الكمية المتبقية هي ${totalRemaining} فقط`
+                }
+            }
+
+            let remainingToDeduct = amount
+
+            const updateStatement = db.prepare(`
+                UPDATE purchase_invoice_items
+                SET remaining_quantity = ?, is_closed = ?
+                WHERE id = ?
+                AND is_closed = 0
+            `)
+
+            for (const item of openItems) {
+                if (remainingToDeduct <= 0) break
+
+                const currentQuantity = item.remaining_quantity ?? 0
+                const deductedQuantity = Math.min(
+                    currentQuantity,
+                    remainingToDeduct
+                )
+                const newQuantity = currentQuantity - deductedQuantity
+
+                updateStatement.run(
+                    newQuantity,
+                    newQuantity === 0 ? 1 : 0,
+                    item.id
+                )
+
+                remainingToDeduct -= deductedQuantity
+            }
+
+            const updatedItems = db.prepare(`
+                SELECT remaining_quantity, is_closed
+                FROM purchase_invoice_items
+                WHERE invoice_id = ?
+                AND category_code = ?
+            `).all(parsedInvoiceId, safeCategoryCode) as {
+                remaining_quantity: number | null
+                is_closed: number
+            }[]
+
+            const remainingQuantity = updatedItems.reduce(
+                (sum, item) => sum + (item.remaining_quantity ?? 0),
+                0
+            )
+
+            db.exec("COMMIT")
+
+            return {
+                success: true,
+                message: remainingQuantity === 0
+                    ? "تم الخصم وإغلاق الصنف"
+                    : "تم خصم الكمية بنجاح",
+                remainingQuantity
+            }
+        } catch (error) {
+            db.exec("ROLLBACK")
+            throw error
+        }
+    } catch {
+        return {
+            success: false,
+            message: "فشل خصم الكمية"
+        }
+    }
+}
+
+export async function closePurchaseInvoiceCategory(
+    invoiceId: string,
+    categoryCode: string
+): Promise<{
+    success: boolean
+    message: string
+}> {
+    try {
+        ensureInvoicesPurchaseTables()
+
+        const parsedInvoiceId = Number(invoiceId)
+        const safeCategoryCode = String(categoryCode ?? "").trim()
+
+        if (!Number.isInteger(parsedInvoiceId) || parsedInvoiceId <= 0) {
+            return { success: false, message: "رقم الفاتورة غير صحيح" }
+        }
+
+        if (!safeCategoryCode) {
+            return { success: false, message: "كود الصنف غير صحيح" }
+        }
+
+        const db = getDatabase()
+
+        const result = db.prepare(`
+            UPDATE purchase_invoice_items
+            SET remaining_quantity = 0, is_closed = 1
+            WHERE invoice_id = ?
+            AND category_code = ?
+            AND is_closed = 0
+        `).run(parsedInvoiceId, safeCategoryCode)
+
+        if (result.changes === 0) {
+            return {
+                success: false,
+                message: "الصنف غير موجود أو مغلق بالفعل"
+            }
+        }
+
+        return {
+            success: true,
+            message: "تم إنهاء الصنف وإغلاقه بنجاح"
+        }
+    } catch {
+        return {
+            success: false,
+            message: "فشل إنهاء الصنف"
+        }
     }
 }
 
 export async function getAllInvoicesPurchase(
     page = 1,
-    limit = 10
+    limit = 10,
+    invoiceNo = "",
+    invoiceDate = ""
 ): Promise<InvoicesPurchaseResponse> {
     try {
         ensureInvoicesPurchaseTables()
 
         const db = getDatabase()
-        const safePage = Math.max(1, Math.floor(page))
-        const safeLimit = Math.max(1, Math.floor(limit))
+        const safePage = Math.max(1, Math.floor(Number(page) || 1))
+        const safeLimit = Math.max(1, Math.floor(Number(limit) || 10))
+        const safeInvoiceNo = String(invoiceNo ?? "").trim()
+        const safeInvoiceDate = String(invoiceDate ?? "").trim()
+
+        const conditions: string[] = []
+        const params: (string | number)[] = []
+
+        if (safeInvoiceNo) {
+            conditions.push("invoice_no LIKE ?")
+            params.push(`%${safeInvoiceNo}%`)
+        }
+
+        if (safeInvoiceDate) {
+            conditions.push("invoice_date = ?")
+            params.push(safeInvoiceDate)
+        }
+
+        const whereClause = conditions.length
+            ? `WHERE ${conditions.join(" AND ")}`
+            : ""
+
         const offset = (safePage - 1) * safeLimit
 
         const invoices = db.prepare(`
             SELECT id
             FROM purchase_invoices
+            ${whereClause}
             ORDER BY id DESC
             LIMIT ? OFFSET ?
-        `).all(safeLimit, offset) as { id: number }[]
+        `).all(...params, safeLimit, offset) as { id: number }[]
 
         const data = invoices
             .map(invoice => getInvoiceData(invoice.id))
@@ -270,7 +544,9 @@ export async function getAllInvoicesPurchase(
             success: true,
             data: data as unknown as InvoicePurchase[]
         }
-    } catch {
+    } catch (error) {
+        console.error("GET ALL PURCHASE INVOICES ERROR:", error)
+
         return {
             success: false,
             data: [],
@@ -398,6 +674,27 @@ export async function updateInvoicePurchase(
 
         if (!existingInvoice) {
             return { success: false, message: "الفاتورة غير موجودة" }
+        }
+
+        const hasStockActivity = db.prepare(`
+            SELECT id
+            FROM purchase_invoice_items
+            WHERE invoice_id = ?
+            AND (
+                is_closed = 1
+                OR (
+                    quantity IS NOT NULL
+                    AND remaining_quantity < quantity
+                )
+            )
+            LIMIT 1
+        `).get(invoiceId)
+
+        if (hasStockActivity) {
+            return {
+                success: false,
+                message: "لا يمكن تعديل الفاتورة بعد خصم كمية أو إنهاء أحد أصنافها"
+            }
         }
 
         db.exec("BEGIN")

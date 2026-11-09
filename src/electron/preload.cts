@@ -25,6 +25,8 @@ electron.contextBridge.exposeInMainWorld("electron", {
             limit?: number,
             search?: string
         ) => ipcInvoke("categories:getAll", { page : page, limit : limit, search : search }),
+        searchCategoriesStock: (search?: string) =>
+            ipcInvoke("categories:searchStock", { search : search }),
         createCategory: (code: string, name: string) =>
             ipcInvoke("categories:create", { code, name }),
         deleteCategory: (code: string) =>
@@ -171,8 +173,18 @@ electron.contextBridge.exposeInMainWorld("electron", {
     },
 
     invoicesPurchase: {
-        getAll: (page?: number, limit?: number) =>
-            ipcInvoke("invoicesPurchase:getAll", { page, limit }),
+        getAll: (
+            page?: number,
+            limit?: number,
+            invoiceNo?: string,
+            invoiceDate?: string
+        ) =>
+            ipcInvoke("invoicesPurchase:getAll", 
+               { page : page,
+                limit : limit,
+                invoiceNo : invoiceNo,
+                invoiceDate : invoiceDate}
+            ),
         get: (id: string) =>
             ipcInvoke("invoicesPurchase:get", id),
         create: (
@@ -198,6 +210,27 @@ electron.contextBridge.exposeInMainWorld("electron", {
                 invoiceNo,
                 invoiceDate,
                 items
+            ),
+            deduct: (
+                invoiceId: string,
+                categoryCode: string,
+                amount: number
+            ) =>
+                ipcInvoke(
+                    "invoicesPurchase:deduct",
+                    invoiceId,
+                    categoryCode,
+                    amount
+                ),
+
+            closeCategory: (
+                invoiceId: string,
+                categoryCode: string
+            ) =>
+                ipcInvoke(
+                    "invoicesPurchase:closeCategory",
+                    invoiceId,
+                    categoryCode
             ),
         delete: (id: string) =>
             ipcInvoke("invoicesPurchase:delete", id)

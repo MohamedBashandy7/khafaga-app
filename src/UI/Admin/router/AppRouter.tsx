@@ -6,12 +6,16 @@ import Dashboard from "../pages/dashboard/main"
 import NotFound from "../pages/not_found/not_found"
 import ProtectedRoute from "./ProtectedRoute"
 import MainLayout from "../layouts/main.layout"
+// Categories
 import { GetAllCategories } from "../pages/categories/getAllCategories"
 import { AddNewCategory } from "../pages/categories/addNewCategory"
 import { EditCategory } from "../pages/categories/EditCategory"
+import { SearchCategoriesStock } from "../pages/categories/SearchCategoriesStock"
+
 import { GetAllProducts } from "../pages/products/getAllProducts"
 import { AddNewProduct } from "../pages/products/addNewProduct"
 import { EditProduct } from "../pages/products/EditProduct"
+
 import { GetAllExpenses } from "../pages/expenses/getAllExpenses"
 import { AddNewExpense } from "../pages/expenses/addNewExpense"
 import { EditExpense } from "../pages/expenses/EditExpense"
@@ -23,6 +27,7 @@ import { AttendanceReport } from "../pages/attendance/AttendanceReport"
 import { GetAllSuppliers } from "../pages/suppliers/GetAllSuppliers"
 import { AddSupplier } from "../pages/suppliers/AddSupplier"
 import { EditSupplier } from "../pages/suppliers/EditSupplier"
+// Invoices Purchase
 import { GetAllInvoicesPurchase } from "../pages/Invoices/Purchase/GetAllInvoicesPurchase"
 import { AddInvoicePurchase } from "../pages/Invoices/Purchase/AddInvoicePurchase"
 import { EditInvoicePurchase } from "../pages/Invoices/Purchase/EditInvoicePurchase"
@@ -77,6 +82,15 @@ export default function AppRouter() {
                     }
                 />
 
+                <Route
+                    path="/categories/stock"
+                    element={
+                        <ProtectedRoute>
+                            <SearchCategoriesStock />
+                        </ProtectedRoute>
+                    }
+                />
+                
                 <Route
                     path="/products"
                     element={
