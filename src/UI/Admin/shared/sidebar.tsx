@@ -31,6 +31,7 @@ export default function Sidebar() {
                     to="/categories"
                     icon="zmdi-widgets"
                     label="الاصناف"
+                    end
                 />
                 <SidebarItem
                     to="/invoices/purchase"
