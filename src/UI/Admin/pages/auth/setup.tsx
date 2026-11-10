@@ -51,8 +51,13 @@ export default function Setup() {
             }
 
             navigate("/login", { replace: true })
-        } catch {
-            setError("حدث خطأ أثناء إنشاء الحساب")
+        } catch (error) {
+            console.error("Setup Admin Error:", error)
+            setError(
+                error instanceof Error
+                    ? error.message
+                    : String(error)
+            )
         } finally {
             setSubmitting(false)
         }

@@ -2,6 +2,7 @@
 import { useState } from "react"
 import NoData from "../../shared/nodata"
 import Loader from "../../shared/loading"
+import { SearchX } from "lucide-react"
 
 export function SearchCategoriesStock() {
     const [searchInput, setSearchInput] = useState("")
@@ -246,7 +247,10 @@ setSuccess(result.message || "تم إنهاء الصنف بنجاح")
 
             {!loading && searched && !error && categories.length === 0 && (
                 <div className="rounded-lg bg-black/20 p-8">
-                    <NoData message="لا توجد أصناف مطابقة للبحث" />
+                    <NoData
+                        icon={<SearchX size={48} />}
+                        message="لا توجد أصناف مطابقة للبحث"
+                    />                
                 </div>
             )}
 

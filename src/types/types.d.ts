@@ -1,20 +1,13 @@
-type Stats = {
-    cpuUsage: number
-    RAMUsage: number
-    storageData: {
-        total: number
-        free: number
-        used: number
-        freePercent: number
-        usedPercent: number
-    }
+type DashboardStats = {
+    completedInvoices: number
+    remainingInvoices: number
+    totalCategories: number
 }
 
-type StaticData = {
-    totalStorage: number
-    totalRAM: number
-    totalCPU: number
-    CPUModel: string
+type DashboardStatsResponse = {
+    success: boolean
+    data: DashboardStats
+    message?: string
 }
 
 type ThemeSettings = {
@@ -437,6 +430,8 @@ type EventPayloadMapping = {
     "theme:get": ThemeSettings
     "theme:set": void
 
+    "stats:getDashboard": DashboardStatsResponse
+
     "categories:getAll": CategoriesResponse
     "categories:create": CreateCategoryResponse
     "categories:delete": DeleteCategoryResponse
@@ -518,6 +513,9 @@ interface Window {
         theme: {
             get(): Promise<ThemeSettings>
             set(theme: ThemeSettings): Promise<void>
+        }
+        stats: {
+            getDashboard(): Promise<DashboardStatsResponse>
         }
         categories: {
             getAllCategories: (

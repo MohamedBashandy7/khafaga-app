@@ -17,7 +17,10 @@ electron.contextBridge.exposeInMainWorld("electron", {
         get: () => ipcInvoke("theme:get"),
         set: (theme: ThemeSettings) => ipcInvoke("theme:set", theme)
     },
-
+stats: {
+    getDashboard: () =>
+        ipcInvoke("stats:getDashboard")
+},
     categories: {
         getAllCategories: (
             page?: number,

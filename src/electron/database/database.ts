@@ -1,14 +1,50 @@
 import { app } from "electron"
 import { DatabaseSync } from "node:sqlite"
-import { join } from "node:path"
+import {
+    existsSync,
+    mkdirSync,
+    readFileSync
+} from "node:fs"
+import { isAbsolute, join } from "node:path"
 
 let database: DatabaseSync | null = null
+
+function getDatabaseDirectory(): string {
+    if (!app.isPackaged) {
+        return app.getPath("userData")
+    }
+
+    const locationFile = join(
+        app.getPath("appData"),
+        "Fresh Invoices",
+        "database-location.txt"
+    )
+
+    if (!existsSync(locationFile)) {
+        throw new Error(
+            "Database location configuration was not found. Please reinstall the application."
+        )
+    }
+
+    const selectedDirectory = readFileSync(
+        locationFile,
+        "utf-8"
+    ).trim()
+
+    if (!selectedDirectory || !isAbsolute(selectedDirectory)) {
+        throw new Error("The selected database directory is invalid.")
+    }
+
+    mkdirSync(selectedDirectory, { recursive: true })
+
+    return selectedDirectory
+}
 
 export function initializeDatabase(): DatabaseSync {
     if (database) return database
 
     const databasePath = join(
-        app.getPath("userData"),
+        getDatabaseDirectory(),
         "accounting.sqlite"
     )
 
